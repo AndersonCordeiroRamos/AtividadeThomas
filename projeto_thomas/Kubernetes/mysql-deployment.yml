@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-deployment
+  labels:
+    component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: database
+  template:
+    metadata:
+      labels:
+        component: database
+    spec:
+      containers:
+      - name: database-container
+        image: mysql:latest
+        envFrom:
+        - secretRef:
+            name: db-credentials
+        - configMapRef:
+            name: database-config
+        ports:
+        - name: db-port
+          containerPort: 3306
+          protocol: TCP
+        volumeMounts:
+        - name: db-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: db-storage
+        persistentVolumeClaim:
+          claimName: db-volume-claim
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config
+  labels:
+    component: database
+  annotations:
+    description: "Configurações do banco de dados"
+data:
+  DATABASE_NAME: "app_db"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-volume-claim
+  labels:
+    component: database
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: database-service
+  labels:
+    component: database
+spec:
+  selector:
+    component: database
+  ports:
+    - name: db-port
+      protocol: TCP
+      port: 3306
+      targetPort: 3306
+  type: ClusterIP
